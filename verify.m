@@ -22,7 +22,7 @@ function varargout = verify(varargin)
 
 % Edit the above text to modify the response to help verify
 
-% Last Modified by GUIDE v2.5 10-May-2017 10:55:38
+% Last Modified by GUIDE v2.5 10-May-2017 17:56:03
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -378,6 +378,7 @@ switch get(hObject,'SelectionType')
         winopen(handles.edited_filename_im);
 end
 set(handles.open_im, 'Enable', 'on');
+set(handles.open_im_color, 'Enable', 'on');
 guidata(hObject, handles);
 
 %TODO
@@ -852,11 +853,19 @@ function open_im_ButtonDownFcn(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-
-
 % --- Executes on button press in open_im.
 function open_im_Callback(hObject, eventdata, handles)
 % hObject    handle to open_im (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 winopen(handles.edited_filename_im);
+
+
+% --- Executes on button press in open_im_color.
+function open_im_color_Callback(hObject, eventdata, handles)
+% hObject    handle to open_im_color (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+fname = handles.edited_filename_im;
+fname = strcat(fname(1,1:end-7), '.bmp');
+winopen(fname);

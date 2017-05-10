@@ -22,7 +22,7 @@ function varargout = verify(varargin)
 
 % Edit the above text to modify the response to help verify
 
-% Last Modified by GUIDE v2.5 10-May-2017 10:55:38
+% Last Modified by GUIDE v2.5 10-May-2017 17:52:09
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -220,7 +220,7 @@ set(handles.counter_label, 'String', counter);
 
 %set callbacks
 % set(handles.h_im, 'ButtonDownFcn',@adjustBox);
-% set(gcf, 'ButtonDownFcn',@main_axis_callback);
+set(gcf, 'ButtonDownFcn',@main_axis_callback);
 
 %set context menu
 cm = uicontextmenu(gcf);
@@ -228,7 +228,7 @@ cm = uicontextmenu(gcf);
 % Create child menu items for the uicontextmenu
 m1 = uimenu(cm,'Label','Box adjustment','Callback',@adjustBox);
 m2 = uimenu(cm,'Label','Noise removal','Callback',@eraseBox);
-set(verify, )
+set(gcf, 'UIContextMenu', cm);
 % m3 = uimenu(cm,'Label','Open image','Callback',@setlinestyle);
 guidata(hObject, handles);
 
@@ -371,14 +371,12 @@ handles.rects(idx).EdgeColor = 'b';
 show_char_info(hObject, handles); %display info of the current character
 handles = guidata(hObject);
 
-% switch get(hObject,'SelectionType')
-%      case 'alt'
-%         eraseBox(hObject);
-%      case 'extend'
-%         adjustBox(hObject);
-%     case 'open'
-%         winopen(handles.edited_filename_im);
-% end
+switch get(hObject,'SelectionType')
+     case 'extend'
+        adjustBox(hObject);
+    case 'open'
+        winopen(handles.edited_filename_im);
+end
 set(handles.open_im, 'Enable', 'on');
 guidata(hObject, handles);
 
@@ -862,3 +860,13 @@ function open_im_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 winopen(handles.edited_filename_im);
+
+
+% --- Executes on button press in pushbutton9.
+function pushbutton9_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton9 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+fname = handles.edited_filename_im;
+fname = strcat
+winopen();
