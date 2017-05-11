@@ -333,6 +333,12 @@ switch eventdata.Key
             handles.section_index = handles.section_index - 1;
         end
 end
+
+%save fileindex
+fileid = fopen(fullfile(handles.input_folder_name, 'config.txt'), 'w');
+fprintf(fileid, '%d',  handles.file_index);
+fclose(fileid);
+        
 handles.char_array_index = 1;
 setView(hObject, handles);
   
@@ -421,6 +427,12 @@ end
 
 handles.file_index = idx;
 handles.section_index = 1;
+
+%save fileindex
+fileid = fopen(fullfile(handles.input_folder_name, 'config.txt'), 'w');
+fprintf(fileid, '%d',  handles.file_index);
+fclose(fileid);
+
 setView(hObject, handles);
 
 % --- Executes on key press with focus on pagenum and none of its controls.
