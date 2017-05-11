@@ -580,7 +580,7 @@ char_pos = char_pos + 1;
 
 fclose(fileid);
 
-function loadChar(hObject)
+function loadChar(hObject, iserase)
 handles = guidata(hObject);
 
 %required data
@@ -600,6 +600,9 @@ path = handles.src_im(brightness).Source(handles.file_index);
 fname = fullfile(path.folder, path.name);
 handles.edited_filename_im = fname;
 
+%colored image
+handles.edited_filename_im_color = strcat(fname(1, 1:end-7), '.bmp');
+
 %axis limit
 limit = char_pos(raw_char_index,:,section_index);
 x_limit = [limit(1)-2 limit(3)+2];
@@ -607,7 +610,13 @@ y_limit = [limit(2)-2 limit(4)+2];
 
 %get the image file
 handles.edited_im = handles.input_im(brightness).im;
-figure, handles.edited_axes = imagesc(handles.edited_im);
+
+if iserase
+    figure, handles.edited_axes = imshow(handles.edited_filename_im_color);
+else
+    figure, handles.edited_axes = imagesc(handles.edited_im);
+end
+
 xlim(x_limit);
 ylim(y_limit);
 colormap gray;
@@ -620,13 +629,14 @@ handles.adjusted_rect = rectangle('Position', [pos1 pos2],'EdgeColor', 'r');
 %update handles
 handles.char_pos = char_pos;
 handles.anchor = anchor;
+handles.file_brightness = brightness;
 guidata(gcf, handles);
 
 
 %==================ADJUSTBOX=================
 function adjustBox(hObject, evt)
 
-loadChar(hObject);
+loadChar(hObject, 0);
 ax = gca;
 ax.Title.String = 'Box Adjustment';
 
@@ -721,7 +731,7 @@ guidata(verify, handles);
 
 %==================ERASE_BOX=================
 function eraseBox(hObject, evt)
-loadChar(hObject);
+loadChar(hObject, 1);
 
 ax = gca;
 ax.Title.String = 'Noise Removal';
@@ -783,15 +793,21 @@ x2 = x1 + pos(3)-1;
 y2 = y1 + pos(4)-1;
 
 handles.edited_im(y1:y2, x1:x2) = 1;
+handles.input_im(handles.file_brightness).im(y1:y2, x1:x2) = 1;
+handles.edited_axes.CData(y1:y2, x1:x2, 1) = 255;
+handles.edited_axes.CData(y1:y2, x1:x2, 2) = 255;
+handles.edited_axes.CData(y1:y2, x1:x2, 3) = 255;
 
-handles.edited_axes.CData = handles.edited_im;
-% handles.h_im.CData = handles.current_im;
-% handles.h_char.CData = handles.current_im;
-% handles.h_section.CData = handles.current_im;
-
+imwrite(handles.edited_axes.CData, handles.edited_filename_im_color);
 imwrite(handles.edited_im, imfname);
+
+%build the image
+[im, ~] = build_h_im(handles.input_im, handles.char_pos_raw(:,:,handles.section_index), 10);
+handles.h_im.CData = im;
+
 set(gcf,'WindowButtonMotionFcn','')
 set(gcf,'WindowButtonUpFcn','')
+
 setappdata(gcf, 'handles', handles);
 
 function erase_close(hObject,evd)
@@ -857,7 +873,6 @@ path = handles.src_im(char_info{3}).Source(handles.file_index);
 % char_info{1} = fullfile(path.folder, path.name); %im_name
 char_info{1} = path.name; %im_name
 
-
 % --- If Enable == 'on', executes on mouse press in 5 pixel border.
 % --- Otherwise, executes on mouse press in 5 pixel border or over open_im.
 function open_im_ButtonDownFcn(hObject, eventdata, handles)
@@ -871,7 +886,6 @@ function open_im_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 winopen(handles.edited_filename_im);
-
 
 % --- Executes on button press in open_im_color.
 function open_im_color_Callback(hObject, eventdata, handles)
