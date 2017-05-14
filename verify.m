@@ -179,15 +179,17 @@ section_index = handles.section_index;
 
 %get the positions
 if section_index == 1
+    tic
     %get the 5 layers image
     input_im = struct('im', cell(1, 5));
     for t=1:5
         path = handles.src_im(t).Source(index);
-        input_im(t).im = imread(fullfile(path.folder, path.name));
+        input_im(t).im = read_image(fullfile(path.folder, path.name))/255;
     end
     handles.input_im = input_im;
     [char_pos_raw(:,:,1), char_pos_raw(:,:,2), char_pos_raw(:,:,3)] = h_pos_raw(handles.src_pos, index);
     handles.char_pos_raw = char_pos_raw;
+    toc
 end
 
 %build the image
@@ -210,7 +212,6 @@ colormap gray;
 %add page info to the guidata space
 handles.char_pos_final = char_pos_final;
 handles.im = im;
-
 
 %update info displayed on the gui
 section_counter_label = strcat(num2str(section_index), '/ 3');
