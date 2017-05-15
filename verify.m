@@ -187,13 +187,14 @@ if section_index == 1
         input_im(t).im = read_image(fullfile(path.folder, path.name))/255;
     end
     handles.input_im = input_im;
-    [char_pos_raw(:,:,1), char_pos_raw(:,:,2), char_pos_raw(:,:,3)] = h_pos_raw(handles.src_pos, index);
+    [char_pos_raw(:,:,1), char_pos_raw(:,:,2), char_pos_raw(:,:,3), zvr_idx] = h_pos_raw(handles.src_pos, index);
     handles.char_pos_raw = char_pos_raw;
+    handles.zvr_idx = zvr_idx;
     toc
 end
 
 %build the image
-[im, char_pos_final] = build_h_im(handles.input_im, handles.char_pos_raw(:,:,section_index), 10);
+[im, char_pos_final] = build_h_im(handles.input_im, handles.char_pos_raw(:,:,section_index), 10, handles.zvr_idx(section_index).val);
 %plot to main_axes
 handles.h_im = imagesc(im, 'Parent', handles.main_axes);
 handles.h_im.HitTest = 'off';
@@ -207,7 +208,15 @@ col = ['r', 'b', 'g', 'y', 'm'];
 for t=1:100    
     handles.rects(t) = rectangle('Position', temp(t, 1:4), 'EdgeColor', col(1));
 end
-colormap gray;
+%green color for zvr rectangles
+ar = handles.zvr_idx(section_index).val;
+if ~isempty(ar)
+    for t=1:numel(ar)
+        handles.rects(ar(t)).EdgeColor = 'g';
+    end
+end
+
+% colormap gray;
 
 %add page info to the guidata space
 handles.char_pos_final = char_pos_final;
@@ -227,7 +236,7 @@ set(gcf, 'ButtonDownFcn',@main_axis_callback);
 cm = uicontextmenu(gcf);
 
 % Create child menu items for the uicontextmenu
-m1 = uimenu(cm,'Label','Box adjustment','Callback',@adjustBox);
+m1 = uimenu(cm,'Label','Box adjustment','Callback',{@adjustBox, 0});
 m2 = uimenu(cm,'Label','Noise removal','Callback',@eraseBox);
 set(gcf, 'UIContextMenu', cm);
 % m3 = uimenu(cm,'Label','Open image','Callback',@setlinestyle);
@@ -333,6 +342,8 @@ switch eventdata.Key
         else
             handles.section_index = handles.section_index - 1;
         end
+    case 'p'
+        adjustBox(hObject, eventdata, 1);
 end
 
 %save fileindex
@@ -380,7 +391,7 @@ handles = guidata(hObject);
 
 switch get(hObject,'SelectionType')
      case 'extend'
-        adjustBox(hObject);
+        adjustBox(hObject, eventdata, 0);
     case 'open'
         winopen(handles.edited_filename_im);
 end
@@ -449,7 +460,7 @@ if strcmp(eventdata.Key,'return')
 end
 
 %============================IMAGE FACTORY=============================
-function [im, char_pos_final] = build_h_im(orig_ima, char_pos_raw, padding)
+function [im, char_pos_final] = build_h_im(orig_ima, char_pos_raw, padding, zvr_idx)
 %orig_ima 1x5 struct containing the images
 
 %get the final positions
@@ -475,9 +486,14 @@ for t=1:100
     out_y1 = char_pos_final(t,2);
     out_x2 = char_pos_final(t,3);
     out_y2 = char_pos_final(t,4);
-    
+        
     %update the output image
-    im(out_y1:out_y2, out_x1:out_x2) = orig_ima(brightness).im(in_y1:in_y2, in_x1:in_x2);
+    if ~ismember(t, zvr_idx)
+        im(out_y1:out_y2, out_x1:out_x2) = orig_ima(brightness).im(in_y1:in_y2, in_x1:in_x2);
+    else
+       im(out_y1:out_y2, out_x1:out_x2) = dummy_pic(37);
+    end
+
 end
 
 function char_pos = h_pos_final(raw_positions, padding)
@@ -504,9 +520,9 @@ for t=1:100
     end
 end
 
-function [char1_pos, char2_pos, char3_pos] = h_pos_raw(src_pos, index)
+function [char1_pos, char2_pos, char3_pos, zvr_idx] = h_pos_raw(src_pos, index)
 %return Nx9 postition array
-%char3_pos = [x1, y1, x2, y2, dist, width, heigth, brightnes, char_index];
+%char3_pos = [x1, y1, x2, y2, dist, width, heigth, brightness, char_index];
 
 %get the five position 
 %im_pos(row, col, char, brightness)
@@ -533,26 +549,60 @@ char3_pos(:,[3 4]) = char3_pos(:,[3 4]) + 2;
 br = [ones(20,1); ones(20,1)*2; ones(20,1)*3; ones(20,1)*4; ones(20,1)*5];
 char_index = (1:20)';
 char_index = [char_index; char_index; char_index; char_index; char_index];
+zvr_idx = struct('val', cell(1, 3));
+zvr_dummy = 36;
+
 
 w = abs(char1_pos(:,1) - char1_pos(:,3));
 h = abs(char1_pos(:,2) - char1_pos(:,4));
 dist = sqrt(w.^2 + h.^2);
+%======adjustment for zero values======
+idx = find(char1_pos(:,1) < 2 | char1_pos(:,2) < 2 | char1_pos(:,3) < 4 | char1_pos(:,4) < 4);
+dist(idx) = 53;
+h(idx) = zvr_dummy;
+w(idx) = zvr_dummy;
+%==============
 char1_pos = [char1_pos, dist, w, h, br, char_index];
+
 
 w = abs(char2_pos(:,1) - char2_pos(:,3));
 h = abs(char2_pos(:,2) - char2_pos(:,4));
 dist = sqrt(w.^2 + h.^2);
+%======adjustment for zero values======
+idx = find(char2_pos(:,1) < 2 | char2_pos(:,2) < 2 | char2_pos(:,3) < 4 | char2_pos(:,4) < 4);
+dist(idx) = 53;
+h(idx) = zvr_dummy;
+w(idx) = zvr_dummy;
+%==============
 char2_pos = [char2_pos, dist, w, h, br, char_index];
+
 
 w = abs(char3_pos(:,1) - char3_pos(:,3));
 h = abs(char3_pos(:,2) - char3_pos(:,4));
 dist = sqrt(w.^2 + h.^2);
+%======adjustment for zero values======
+idx = find(char3_pos(:,1) < 2 | char3_pos(:,2) < 2 | char3_pos(:,3) < 4 | char3_pos(:,4) < 4);
+dist(idx) = 53;
+h(idx) = zvr_dummy;
+w(idx) = zvr_dummy;
+%==============
 char3_pos = [char3_pos, dist, w, h, br, char_index];
+
 
 %sort the arrays by diagonal length oh the bounding boxes
 char1_pos = sortrows(char1_pos,5);
 char2_pos = sortrows(char2_pos,5);
 char3_pos = sortrows(char3_pos,5);
+
+%get the index of the zero value rows
+[row, ~] = find( char1_pos(:, 6) == zvr_dummy & char1_pos(:, 7) == zvr_dummy & char1_pos(:, 5) == 53);
+zvr_idx(1).val = unique(row);
+
+[row, ~] = find( char2_pos(:, 6) == zvr_dummy & char2_pos(:, 7) == zvr_dummy & char1_pos(:, 5) == 53);
+zvr_idx(2).val = unique(row);
+
+[row, ~] = find( char3_pos(:, 6) == zvr_dummy & char3_pos(:, 7) == zvr_dummy & char1_pos(:, 5) == 53);
+zvr_idx(3).val = unique(row);
 
 function [anchor, char_pos] = pointsFromFile(filepath)
 char_pos = zeros(20, 4, 3); % 3 layers position file
@@ -581,7 +631,7 @@ char_pos = char_pos + 1;
 
 fclose(fileid);
 
-function loadChar(hObject, iserase)
+function loadChar(hObject, iserase, iszvr)
 handles = guidata(hObject);
 
 %required data
@@ -604,10 +654,6 @@ handles.edited_filename_im = fname;
 %colored image
 handles.edited_filename_im_color = strcat(fname(1, 1:end-7), '.bmp');
 
-%axis limit
-limit = char_pos(raw_char_index,:,section_index);
-x_limit = [limit(1)-2 limit(3)+2];
-y_limit = [limit(2)-2 limit(4)+2];
 
 %get the image file
 handles.edited_im = handles.input_im(brightness).im;
@@ -618,14 +664,33 @@ else
     figure, handles.edited_axes = imagesc(handles.edited_im);
 end
 
+%axis limit
+if ~iszvr
+    limit = char_pos(raw_char_index,:,section_index);
+else
+    %get a reference point from the user
+    [x, y] = ginput;
+    x = x(end);
+    y = y(end);
+    limit = [round([x y])-20 round([x y])+20];
+    char_pos(raw_char_index,:,section_index) = limit;
+end
+
+x_limit = [limit(1)-2 limit(3)+2];
+y_limit = [limit(2)-2 limit(4)+2];
+
 xlim(x_limit);
 ylim(y_limit);
-colormap gray;
 
 %draw rectangle
 pos1 = [limit(1) limit(2)]-0.5;
 pos2 = [abs(limit(1)-limit(3)) abs(limit(2)-limit(4))] + 1;
 handles.adjusted_rect = rectangle('Position', [pos1 pos2],'EdgeColor', 'r');
+
+
+colormap gray;
+
+
 
 %update handles
 handles.char_pos = char_pos;
@@ -635,9 +700,9 @@ guidata(gcf, handles);
 
 
 %==================ADJUSTBOX=================
-function adjustBox(hObject, evt)
+function adjustBox(hObject, evt, iszvr)
 
-loadChar(hObject, 0);
+loadChar(hObject, 0, iszvr);
 ax = gca;
 ax.Title.String = 'Box Adjustment';
 
@@ -732,7 +797,7 @@ guidata(verify, handles);
 
 %==================ERASE_BOX=================
 function eraseBox(hObject, evt)
-loadChar(hObject, 1);
+loadChar(hObject, 1, 0);
 
 ax = gca;
 ax.Title.String = 'Noise Removal';
@@ -803,7 +868,9 @@ imwrite(handles.edited_axes.CData, handles.edited_filename_im_color);
 imwrite(handles.edited_im, imfname);
 
 %build the image
-[im, ~] = build_h_im(handles.input_im, handles.char_pos_raw(:,:,handles.section_index), 10);
+section_index = handles.section_index;
+zvr_idx = handles.zvr_idx;
+[im, ~] = build_h_im(handles.input_im, handles.char_pos_raw(:,:,handles.section_index), 10, zvr_idx(section_index).val);
 handles.h_im.CData = im;
 
 set(gcf,'WindowButtonMotionFcn','')
@@ -896,3 +963,20 @@ function open_im_color_Callback(hObject, eventdata, handles)
 fname = handles.edited_filename_im;
 fname = strcat(fname(1,1:end-7), '.bmp');
 winopen(fname);
+
+%dummy pic for zero value rows
+function pic = dummy_pic(k)
+d = ones(1, k);
+md = diag(d);
+pic = md + rot90(md);
+
+%center point
+mid = (k+1) / 2;
+pic(mid,mid) = 1;
+pic(1:end, [1 end]) = 1;
+pic([1 end], 1:end) = 1;
+
+%inverse the colore
+pic(pic == 1) = -1;
+pic(pic == 0) = 1;
+pic(pic == -1) = 0;
