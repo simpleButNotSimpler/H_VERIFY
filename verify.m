@@ -654,25 +654,42 @@ handles.edited_filename_im = fname;
 %colored image
 handles.edited_filename_im_color = strcat(fname(1, 1:end-7), '.bmp');
 
-
 %get the image file
 handles.edited_im = handles.input_im(brightness).im;
 
 if iserase
     figure, handles.edited_axes = imshow(handles.edited_filename_im_color);
 else
-    figure, handles.edited_axes = imagesc(handles.edited_im);
+    if iszvr
+        figure, handles.edited_axes = imshow(handles.edited_im);
+    else
+        figure, handles.edited_axes = imagesc(handles.edited_im);
+    end
+    
 end
 
 %axis limit
 if ~iszvr
     limit = char_pos(raw_char_index,:,section_index);
 else
+    %main_rect_pos
+    switch section_index
+        case 1 
+                section_pos = [anchor(1, 1) anchor(1, 2) anchor(5, 1)-anchor(1, 1) anchor(2, 2)-anchor(1, 2)];
+        case 2
+                section_pos = [anchor(2, 1) anchor(2, 2) anchor(6, 1)-anchor(2, 1) anchor(3, 2)-anchor(2, 2)];
+        case 3
+                section_pos = [anchor(3, 1) anchor(3, 2) anchor(7, 1)-anchor(3, 1) anchor(4, 2)-anchor(3, 2)];
+    end
+    
+    xlim([section_pos(1) section_pos(3)+section_pos(1)-450]);
+    ylim([section_pos(2) section_pos(2)+section_pos(4)-100]);
+    
     %get a reference point from the user
     [x, y] = ginput;
     x = x(end);
     y = y(end);
-    limit = [round([x y])-20 round([x y])+20];
+    limit = [round([x y])-50 round([x y])+50];
     char_pos(raw_char_index,:,section_index) = limit;
 end
 
@@ -687,17 +704,13 @@ pos1 = [limit(1) limit(2)]-0.5;
 pos2 = [abs(limit(1)-limit(3)) abs(limit(2)-limit(4))] + 1;
 handles.adjusted_rect = rectangle('Position', [pos1 pos2],'EdgeColor', 'r');
 
-
 colormap gray;
-
-
 
 %update handles
 handles.char_pos = char_pos;
 handles.anchor = anchor;
 handles.file_brightness = brightness;
 guidata(gcf, handles);
-
 
 %==================ADJUSTBOX=================
 function adjustBox(hObject, evt, iszvr)
@@ -710,11 +723,11 @@ handles = guidata(gcf);
 setappdata(gcf, 'handles', handles);
 
 %set callback on the figure
-set(gcf,'WindowButtonDownFcn',{@wbd, handles.adjusted_rect});
+set(gcf,'WindowButtonDownFcn',{@wbd, handles.adjusted_rect, iszvr});
 set(gcf,'CloseRequestFcn',{@app_close});
 
 %wbd function
-function wbd(hObject, eventdata, rect)
+function wbd(hObject, eventdata, rect, iszvr)
 
 %==========char_pos===========
 pos = rect.Position;
@@ -743,7 +756,7 @@ else
 end
 
 set(gcf,'WindowButtonMotionFcn',{@wbm, x, y, rect})
-set(gcf,'WindowButtonUpFcn',{@wbu})
+set(gcf,'WindowButtonUpFcn',{@wbu, iszvr})
 
 %erase_wbm function
 function wbm(h,evd, x, y, rect)
@@ -768,7 +781,7 @@ y= y + 0.5;
 rect.Position = [points abs(x-points(1)) abs(y-points(2))];
 
 %erase_wbu function
-function wbu(hObject,evd)
+function wbu(hObject,evd, iszvr)
 % executes when the mouse button is released
 handles = getappdata(gcf, 'handles');
 
@@ -786,6 +799,14 @@ handles.char_pos(raw_char_index,:,section_index) = [x1 y1 x2 y2];
 %save positions
 savePosition(handles.edited_filename_pos, handles.anchor, handles.char_pos);
 
+%build the image
+if iszvr
+    [char_pos_raw(:,:,1), char_pos_raw(:,:,2), char_pos_raw(:,:,3), zvr_idx] = h_pos_raw(handles.src_pos, handles.file_index);
+    handles.zvr_idx = zvr_idx;
+    [im, ~] = build_h_im(handles.input_im, char_pos_raw(:,:,handles.section_index), 10, zvr_idx(section_index).val);
+    handles.h_im.CData = im;
+end
+
 set(gcf,'WindowButtonMotionFcn','')
 set(gcf,'WindowButtonUpFcn','')
 setappdata(gcf, 'handles', handles);
@@ -794,6 +815,7 @@ function app_close(hObject,evd)
 handles = getappdata(gcf, 'handles');
 delete(gcf);
 guidata(verify, handles);
+%============================================
 
 %==================ERASE_BOX=================
 function eraseBox(hObject, evt)
@@ -882,6 +904,7 @@ function erase_close(hObject,evd)
 handles = getappdata(gcf, 'handles');
 delete(gcf);
 guidata(verify, handles);
+%============================================
 
 function show_char_info(hObject, handles)
 
@@ -944,7 +967,7 @@ char_info{1} = path.name; %im_name
 % --- If Enable == 'on', executes on mouse press in 5 pixel border.
 % --- Otherwise, executes on mouse press in 5 pixel border or over open_im.
 function open_im_ButtonDownFcn(hObject, eventdata, handles)
-% hObject    handle to open_im (see GCBO)
+% hObject handle to open_im (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
