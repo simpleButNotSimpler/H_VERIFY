@@ -184,7 +184,7 @@ if section_index == 1
     input_im = struct('im', cell(1, 5));
     for t=1:5
         path = handles.src_im(t).Source(index);
-        input_im(t).im = read_image(fullfile(path.folder, path.name))/255;
+        input_im(t).im = read_image(fullfile(path.folder, path.name));
     end
     handles.input_im = input_im;
     [char_pos_raw(:,:,1), char_pos_raw(:,:,2), char_pos_raw(:,:,3), zvr_idx] = h_pos_raw(handles.src_pos, index);
@@ -236,7 +236,7 @@ set(gcf, 'ButtonDownFcn',@main_axis_callback);
 cm = uicontextmenu(gcf);
 
 % Create child menu items for the uicontextmenu
-m1 = uimenu(cm,'Label','Box adjustment','Callback',{@adjustBox, 0});
+m1 = uimenu(cm,'Label','Box adjustment','Callback',{@adjustBox});
 m2 = uimenu(cm,'Label','Noise removal','Callback',@eraseBox);
 set(gcf, 'UIContextMenu', cm);
 % m3 = uimenu(cm,'Label','Open image','Callback',@setlinestyle);
@@ -343,7 +343,7 @@ switch eventdata.Key
             handles.section_index = handles.section_index - 1;
         end
     case 'p'
-        adjustBox(hObject, eventdata, 1);
+        addPos(hObject, eventdata);
 end
 
 %save fileindex
@@ -631,7 +631,7 @@ char_pos = char_pos + 1;
 
 fclose(fileid);
 
-function loadChar(hObject, iserase, iszvr)
+function loadChar(hObject, iserase)
 handles = guidata(hObject);
 
 %required data
@@ -660,38 +660,11 @@ handles.edited_im = handles.input_im(brightness).im;
 if iserase
     figure, handles.edited_axes = imshow(handles.edited_filename_im_color);
 else
-    if iszvr
-        figure, handles.edited_axes = imshow(handles.edited_im);
-    else
-        figure, handles.edited_axes = imagesc(handles.edited_im);
-    end
-    
+    figure, handles.edited_axes = imagesc(handles.edited_im);
 end
 
 %axis limit
-if ~iszvr
-    limit = char_pos(raw_char_index,:,section_index);
-else
-    %main_rect_pos
-    switch section_index
-        case 1 
-                section_pos = [anchor(1, 1) anchor(1, 2) anchor(5, 1)-anchor(1, 1) anchor(2, 2)-anchor(1, 2)];
-        case 2
-                section_pos = [anchor(2, 1) anchor(2, 2) anchor(6, 1)-anchor(2, 1) anchor(3, 2)-anchor(2, 2)];
-        case 3
-                section_pos = [anchor(3, 1) anchor(3, 2) anchor(7, 1)-anchor(3, 1) anchor(4, 2)-anchor(3, 2)];
-    end
-    
-    xlim([section_pos(1) section_pos(3)+section_pos(1)-450]);
-    ylim([section_pos(2) section_pos(2)+section_pos(4)-100]);
-    
-    %get a reference point from the user
-    [x, y] = ginput;
-    x = x(end);
-    y = y(end);
-    limit = [round([x y])-50 round([x y])+50];
-    char_pos(raw_char_index,:,section_index) = limit;
-end
+limit = char_pos(raw_char_index,:,section_index);
 
 x_limit = [limit(1)-2 limit(3)+2];
 y_limit = [limit(2)-2 limit(4)+2];
@@ -713,9 +686,9 @@ handles.file_brightness = brightness;
 guidata(gcf, handles);
 
 %==================ADJUSTBOX=================
-function adjustBox(hObject, evt, iszvr)
+function adjustBox(hObject, evt)
 
-loadChar(hObject, 0, iszvr);
+loadChar(hObject, 0);
 ax = gca;
 ax.Title.String = 'Box Adjustment';
 
@@ -723,11 +696,11 @@ handles = guidata(gcf);
 setappdata(gcf, 'handles', handles);
 
 %set callback on the figure
-set(gcf,'WindowButtonDownFcn',{@wbd, handles.adjusted_rect, iszvr});
+set(gcf,'WindowButtonDownFcn',{@wbd, handles.adjusted_rect});
 set(gcf,'CloseRequestFcn',{@app_close});
 
 %wbd function
-function wbd(hObject, eventdata, rect, iszvr)
+function wbd(hObject, eventdata, rect)
 
 %==========char_pos===========
 pos = rect.Position;
@@ -756,7 +729,7 @@ else
 end
 
 set(gcf,'WindowButtonMotionFcn',{@wbm, x, y, rect})
-set(gcf,'WindowButtonUpFcn',{@wbu, iszvr})
+set(gcf,'WindowButtonUpFcn',{@wbu})
 
 %erase_wbm function
 function wbm(h,evd, x, y, rect)
@@ -781,7 +754,7 @@ y= y + 0.5;
 rect.Position = [points abs(x-points(1)) abs(y-points(2))];
 
 %erase_wbu function
-function wbu(hObject,evd, iszvr)
+function wbu(hObject,evd)
 % executes when the mouse button is released
 handles = getappdata(gcf, 'handles');
 
@@ -799,14 +772,6 @@ handles.char_pos(raw_char_index,:,section_index) = [x1 y1 x2 y2];
 %save positions
 savePosition(handles.edited_filename_pos, handles.anchor, handles.char_pos);
 
-%build the image
-if iszvr
-    [char_pos_raw(:,:,1), char_pos_raw(:,:,2), char_pos_raw(:,:,3), zvr_idx] = h_pos_raw(handles.src_pos, handles.file_index);
-    handles.zvr_idx = zvr_idx;
-    [im, ~] = build_h_im(handles.input_im, char_pos_raw(:,:,handles.section_index), 10, zvr_idx(section_index).val);
-    handles.h_im.CData = im;
-end
-
 set(gcf,'WindowButtonMotionFcn','')
 set(gcf,'WindowButtonUpFcn','')
 setappdata(gcf, 'handles', handles);
@@ -819,7 +784,7 @@ guidata(verify, handles);
 
 %==================ERASE_BOX=================
 function eraseBox(hObject, evt)
-loadChar(hObject, 1, 0);
+loadChar(hObject, 1);
 
 ax = gca;
 ax.Title.String = 'Noise Removal';
@@ -880,8 +845,8 @@ y1 = pos(2)+0.5;
 x2 = x1 + pos(3)-1;
 y2 = y1 + pos(4)-1;
 
-handles.edited_im(y1:y2, x1:x2) = 1;
-handles.input_im(handles.file_brightness).im(y1:y2, x1:x2) = 1;
+handles.edited_im(y1:y2, x1:x2) = 255;
+handles.input_im(handles.file_brightness).im(y1:y2, x1:x2) = 255;
 handles.edited_axes.CData(y1:y2, x1:x2, 1) = 255;
 handles.edited_axes.CData(y1:y2, x1:x2, 2) = 255;
 handles.edited_axes.CData(y1:y2, x1:x2, 3) = 255;
@@ -901,6 +866,168 @@ set(gcf,'WindowButtonUpFcn','')
 setappdata(gcf, 'handles', handles);
 
 function erase_close(hObject,evd)
+handles = getappdata(gcf, 'handles');
+delete(gcf);
+guidata(verify, handles);
+%============================================
+
+%==================ADDPOS=================
+function addPos(hObject, evt)
+handles = guidata(hObject);
+
+%required data
+final_char_index = handles.char_array_index; %index in pos_final
+brightness = handles.char_pos_final(final_char_index,5);
+section_index = handles.section_index;
+raw_char_index = handles.char_pos_final(final_char_index, 6);
+
+%get the position files
+path = handles.src_pos(brightness).Source(handles.file_index);
+fname = fullfile(path.folder, path.name);
+handles.edited_filename_pos = fname;
+[anchor, char_pos] = pointsFromFile(fname);
+
+%image file name
+path = handles.src_im(brightness).Source(handles.file_index);
+fname = fullfile(path.folder, path.name);
+handles.edited_filename_im = fname;
+
+%get the image file
+handles.edited_im = handles.input_im(brightness).im;
+
+%display the image
+figure, handles.edited_axes = imshow(handles.edited_im);
+
+%AXIS LIMITS
+%section limit
+switch section_index
+    case 1 
+            section_pos = [anchor(1, 1) anchor(1, 2) anchor(5, 1)-anchor(1, 1) anchor(2, 2)-anchor(1, 2)];
+    case 2
+            section_pos = [anchor(2, 1) anchor(2, 2) anchor(6, 1)-anchor(2, 1) anchor(3, 2)-anchor(2, 2)];
+    case 3
+            section_pos = [anchor(3, 1) anchor(3, 2) anchor(7, 1)-anchor(3, 1) anchor(4, 2)-anchor(3, 2)];
+end
+xlim([section_pos(1) section_pos(3)+section_pos(1)-450]);
+ylim([section_pos(2) section_pos(2)+section_pos(4)-100]);
+
+%get a reference point from the user
+try
+    [x, y] = ginput;
+catch me
+    return;
+end
+x = x(end);
+y = y(end);
+limit = [round([x y])-50 round([x y])+50];
+char_pos(raw_char_index,:,section_index) = limit;
+
+x_limit = [limit(1)-2 limit(3)+2];
+y_limit = [limit(2)-2 limit(4)+2];
+xlim(x_limit);
+ylim(y_limit);
+
+%draw rectangle
+pos1 = [limit(1) limit(2)]-0.5;
+pos2 = [abs(limit(1)-limit(3)) abs(limit(2)-limit(4))] + 1;
+handles.adjusted_rect = rectangle('Position', [pos1 pos2],'EdgeColor', 'r');
+
+colormap gray;
+
+%update handles
+handles.char_pos = char_pos;
+handles.anchor = anchor;
+handles.file_brightness = brightness;
+guidata(gcf, handles);
+%-------------------------------------
+ax = gca;
+ax.Title.String = 'Box Adjustment';
+
+handles = guidata(gcf);
+setappdata(gcf, 'handles', handles);
+
+%set callback on the figure
+set(gcf,'WindowButtonDownFcn',{@addpos_wbd, handles.adjusted_rect});
+set(gcf,'CloseRequestFcn',{@addpos_app_close});
+
+%wbd function
+function addpos_wbd(hObject, eventdata, rect, iszvr)
+
+%==========char_pos===========
+pos = rect.Position;
+x1 = pos(1)+0.5;
+y1 = pos(2)+0.5;
+x2 = x1 + pos(3)-1;
+y2 = y1 + pos(4)-1;
+char_pos = [x1 y1 x2 y2];
+
+cp = get(gca, 'CurrentPoint');
+cp = [cp(1, 1) cp(1, 2)];
+cp = round(cp);
+
+temp1 = char_pos(1, [1 2]);
+temp2 = char_pos(1, [3 4]);
+
+d1 = sqrt(sum((temp1-cp).^2, 2));
+d2 = sqrt(sum((temp2-cp).^2, 2));
+
+if d1 > d2
+    x = temp1(1);
+    y = temp1(2);
+else
+    x = temp2(1);
+    y = temp2(2);
+end
+
+set(gcf,'WindowButtonMotionFcn',{@wbm, x, y, rect})
+set(gcf,'WindowButtonUpFcn',{@wbu})
+
+%erase_wbm function
+function addpos_wbm(h,evd, x, y, rect)
+% executes while the mouse moves
+points = get(gca, 'CurrentPoint');
+points = [points(1, 1), points(1, 2)];
+points = round(points);
+
+if points(1) > x && points(2) > y
+    [points(1), x] = swap(points(1), x);
+    [points(2), y] = swap(points(2), y);
+elseif points(2) > y
+    [points(2), y] = swap(points(2), y);
+elseif points(1) > x
+    [points(1), x] = swap(points(1), x);
+end
+
+points = points-0.5;
+x = x + 0.5;
+y= y + 0.5;
+
+rect.Position = [points abs(x-points(1)) abs(y-points(2))];
+
+%erase_wbu function
+function addpos_wbu(hObject,evd, iszvr)
+% executes when the mouse button is released
+handles = getappdata(gcf, 'handles');
+
+pos = handles.adjusted_rect.Position;
+x1 = pos(1)+0.5;
+y1 = pos(2)+0.5;
+x2 = x1 + pos(3)-1;
+y2 = y1 + pos(4)-1;
+
+%update the position in char_pos
+section_index = handles.section_index;
+raw_char_index = handles.char_pos_final(handles.char_array_index, 6);
+handles.char_pos(raw_char_index,:,section_index) = [x1 y1 x2 y2];
+
+%save positions
+savePosition(handles.edited_filename_pos, handles.anchor, handles.char_pos);
+
+set(gcf,'WindowButtonMotionFcn','')
+set(gcf,'WindowButtonUpFcn','')
+setappdata(gcf, 'handles', handles);
+
+function addpos_app_close(hObject,evd)
 handles = getappdata(gcf, 'handles');
 delete(gcf);
 guidata(verify, handles);
