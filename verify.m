@@ -70,32 +70,6 @@ function varargout = verify_OutputFcn(hObject, eventdata, handles)
 
 % Get default command line output from handles structure
 varargout{1} = handles.output;
-
-% --- Executes on button press in savebtn.
-function savebtn_Callback(hObject, eventdata, handles)
-char_index = handles.char_index;
-file_index = handles.file_index;
-file_index_max = handles.file_index_max;
-
-if char_index >= 60
-    savePosition(hObject, handles);
-    if file_index < file_index_max
-        handles.file_index = file_index+1;
-        setView(hObject, handles);
-        %save fileindex
-        fileid = fopen(fullfile(handles.input_folder_name, 'config.txt'), 'w');
-        fprintf(fileid, '%d', file_index+1);
-        fclose(fileid);
-    else
-        set(handles.savebtn, 'Enable', 'off');
-    end
-else
-    handles.char_index = char_index + 1;
-    setCharView(hObject, handles);
-end
-handles = guidata(hObject);
-
-guidata(hObject, handles);
    
 % --- Executes on button press in input_folder_btn.
 function input_folder_btn_Callback(hObject, eventdata, handles)
@@ -194,33 +168,11 @@ if section_index == 1
 end
 
 %build the image
-[im, char_pos_final] = build_h_im(handles.input_im, handles.char_pos_raw(:,:,section_index), 10, handles.zvr_idx(section_index).val);
+[handles.im, handles.char_pos_final] = build_h_im(handles.input_im, handles.char_pos_raw(:,:,section_index),...
+                                                  10, handles.zvr_idx(section_index).val);
+
 %plot to main_axes
-handles.h_im = imagesc(im, 'Parent', handles.main_axes);
-handles.h_im.HitTest = 'off';
-handles.main_axes.HitTest = 'off';
-char_pos(:,[1 2]) = char_pos_final(:,[1 2]) + 1.5;
-char_pos(:,[3 4]) = char_pos_final(:,[3 4]) - 1.5;
-
-axes(handles.main_axes)
-temp = [char_pos(:,1), char_pos(:,2), abs(char_pos(:,1)-char_pos(:,3)), abs(char_pos(:,2)-char_pos(:,4)), char_pos_final(:,5)];
-col = ['r', 'b', 'g', 'y', 'm'];
-for t=1:100    
-    handles.rects(t) = rectangle('Position', temp(t, 1:4), 'EdgeColor', col(1));
-end
-%green color for zvr rectangles
-ar = handles.zvr_idx(section_index).val;
-if ~isempty(ar)
-    for t=1:numel(ar)
-        handles.rects(ar(t)).EdgeColor = 'g';
-    end
-end
-
-% colormap gray;
-
-%add page info to the guidata space
-handles.char_pos_final = char_pos_final;
-handles.im = im;
+handles = plot_im_rect(handles);
 
 %update info displayed on the gui
 section_counter_label = strcat(num2str(section_index), '/ 3');
@@ -242,224 +194,7 @@ set(gcf, 'UIContextMenu', cm);
 % m3 = uimenu(cm,'Label','Open image','Callback',@setlinestyle);
 guidata(hObject, handles);
 
-function setBox(rect_sec, rect_char, pos)
-position = points2rect(pos);
-
-rect_sec.Position = position;
-rect_char.Position = position;
-
-function setCharView(hObject, handles)
-char_index = handles.char_index;
-idx = mod(char_index-1, 20) + 1;
-layer = floor((char_index-1)/20) + 1;
-
-char_pos = handles.char_pos(idx,:, layer);
-main_rect_pos = handles.main_rect_pos(layer,:);
-
-if char_index == 21 || char_index == 41 || char_index == 20 || char_index == 40
-    axes(handles.section_axes);
-    section_pos = main_rect_pos(1, :); %first rectangle on the main axes
-    xlim([section_pos(1) section_pos(3)+section_pos(1)-450]);
-    ylim([section_pos(2) section_pos(2)+section_pos(4)-100]);
-    drawrects(handles.section_axes, handles.sect_rects, handles.char_pos(:,:, layer));
-end
-
-%set limit on char view
-axes(handles.char_axes);
-posc = char_pos; % 1rst row, all col, 1rst layer
-xlim([posc(1)-5 posc(3)+5]);
-ylim([posc(2)-5 posc(4)+5]);
-
-
-%set the position of the draggables on the main image
-handles.main_rect.Position = main_rect_pos;
-%set the position of the draggables on the section_view and char_view
-setBox(handles.char_rect, handles.char_rect_focus, char_pos);
-
-guidata(hObject, handles);
-
-function drawrects(ax, rects, pos)
-% handles = guidata(gcbo);
-axes(ax);
-for t=1:20
-    rects(t).Position = points2rect(pos(t, :));
-end
-
-%save the position of the character in a file
-function savePosition(filepath, anchor, pos)
-pos = pos-1;
-
-%get char unicode
-c = strsplit(filepath, {'_', '.'});
-deg = c{end-2};
-uni3 = c{end-3};
-uni2 = c{end-4};
-uni1 = c{end-5};
-
-idx = 1:8;
-anchor = [idx' anchor]';
-
-idx = 1:20;
-pos1 = [idx' pos(:,:,1)]';
-pos2 = [idx' pos(:,:,2)]';
-pos3 = [idx' pos(:,:,3)]';
-
-%output the positions to a file in the output folder
-fileid = fopen(filepath, 'w');
-fprintf(fileid, '%s\r\n', '[ Anchor Points ]');
-fprintf(fileid, ' %d : (  %6.1f , %6.1f )\r\n', anchor);
-
-fprintf(fileid, '\r\n[ Word Contours ] \r\n unicode_brightness: %s_%s \r\n', uni1, deg);
-fprintf(fileid, ' %2d : ( %4d , %4d ) , ( %4d , %4d )\r\n', pos1);
-
-fprintf(fileid, '\r\nunicode_brightness: %s_%s \r\n', uni2, deg);
-fprintf(fileid, ' %2d : ( %4d , %4d ) , ( %4d , %4d )\r\n', pos2);
-
-fprintf(fileid, '\r\nunicode_brightness: %s_%s \r\n', uni3, deg);
-fprintf(fileid, ' %2d : ( %4d , %4d ) , ( %4d , %4d )\r\n', pos3);
-
-fclose(fileid);
-
-%callback for keypress
-function keypressed_callback(hObject, eventdata)
-handles = guidata(gcbo);
-
-switch eventdata.Key
-    case 'rightarrow'
-        if handles.section_index == 3
-            if handles.file_index ~= handles.file_index_max
-                handles.file_index = handles.file_index + 1;
-                handles.section_index = 1;
-            end
-        else
-            handles.section_index = handles.section_index + 1;
-        end
-    case 'leftarrow'
-        if handles.section_index == 1
-            if handles.file_index ~= 1
-                handles.file_index = handles.file_index - 1;
-            end
-        else
-            handles.section_index = handles.section_index - 1;
-        end
-    case 'p'
-        addPos(hObject, eventdata);
-end
-
-%save fileindex
-fileid = fopen(fullfile(handles.input_folder_name, 'config.txt'), 'w');
-fprintf(fileid, '%d',  handles.file_index);
-fclose(fileid);
-        
-handles.char_array_index = 1;
-setView(hObject, handles);
-  
-function position = points2rect(points)
-points(1, [1 2]) = points(1, [1 2]) - 0.5;
-points(1, [3 4]) = points(1, [3 4]) + 0.5;
-
-%rectangular coodinates
-position = [points(1) points(2) points(3)-points(1)  points(4)-points(2)];
-
-function idx = closestRect(char_pos, point)
-point = round(point);
-row = size(char_pos, 1);
-point = repmat(point, row, 1);
-
-point = [point - char_pos(:,1:2), char_pos(:,3:4) - point];
-point = point>=0;
-point = sum(point, 2);
-idx = find(point == 4);
-
-function main_axis_callback(hObject, eventdata)
-handles = guidata(hObject);
-handles.rects(handles.char_array_index).EdgeColor = 'r';
-
-point = get(handles.main_axes, 'CurrentPoint');
-point = [point(1, 1) point(1, 2)];
-idx = closestRect(handles.char_pos_final(:,1:4), point);
-
-if isempty(idx)
-    return;
-end
-
-handles.char_array_index = idx;
-handles.rects(idx).EdgeColor = 'b';
-
-show_char_info(hObject, handles); %display info of the current character
-handles = guidata(hObject);
-
-switch get(hObject,'SelectionType')
-     case 'extend'
-        adjustBox(hObject, eventdata, 0);
-    case 'open'
-        winopen(handles.edited_filename_im);
-end
-set(handles.open_im, 'Enable', 'on');
-set(handles.open_im_color, 'Enable', 'on');
-guidata(hObject, handles);
-
-%TODO
-%TRACK THE CHARACTER INFO BACK TO THE ORIGINAL FILES
-function [x, y]  = swap(x1, y1)
-x = y1;
-y = x1;
-
-% --- Executes during object creation, after setting all properties.
-function pagenum_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to pagenum (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-% --- Executes on button press in goto.
-function goto_Callback(hObject, eventdata)
-% hObject    handle to goto (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles structure with handles and user data (see GUIDATA)
-handles = guidata(hObject);
-
-idx = get(handles.pagenum, 'String');
-idx = str2double(idx);
-if isnan(idx)
-   idx=1; 
-end
-
-idx = round(idx);
-if idx < 1
-    idx = 1;
-elseif idx > handles.file_index_max-1
-    idx = handles.file_index_max-1;
-end
-
-handles.file_index = idx;
-handles.section_index = 1;
-
-%save fileindex
-fileid = fopen(fullfile(handles.input_folder_name, 'config.txt'), 'w');
-fprintf(fileid, '%d',  handles.file_index);
-fclose(fileid);
-
-setView(hObject, handles);
-
-% --- Executes on key press with focus on pagenum and none of its controls.
-function pagenum_KeyPressFcn(hObject, eventdata, handles)
-% hObject    handle to pagenum (see GCBO)
-% eventdata  structure with the following fields (see MATLAB.UI.CONTROL.UICONTROL)
-%	Key: name of the key that was pressed, in lower case
-%	Character: character interpretation of the key(s) that was pressed
-%	Modifier: name(s) of the modifier key(s) (i.e., control, shift) pressed
-% handles    structure with handles and user data (see GUIDATA)
-if strcmp(eventdata.Key,'return')
-        goto_Callback(verify, eventdata);
-end
-
-%============================IMAGE FACTORY=============================
+%====================IMAGE FACTORY========================
 function [im, char_pos_final] = build_h_im(orig_ima, char_pos_raw, padding, zvr_idx)
 %orig_ima 1x5 struct containing the images
 
@@ -470,7 +205,7 @@ char_pos_final = h_pos_final(char_pos_raw, padding);
 %image1
 row = max(char_pos_final(:,4));
 col = max(char_pos_final(:,3));
-im = ones(row, col);
+im = ones(row, col)*255;
 
 %add the chars
 for t=1:100
@@ -489,11 +224,10 @@ for t=1:100
         
     %update the output image
     if ~ismember(t, zvr_idx)
-        im(out_y1:out_y2, out_x1:out_x2) = orig_ima(brightness).im(in_y1:in_y2, in_x1:in_x2);
+        im(out_y1:out_y2, out_x1:out_x2) = orig_ima(brightness).im(in_y1:in_y2, in_x1:in_x2)*255;
     else
-       im(out_y1:out_y2, out_x1:out_x2) = dummy_pic(37);
+       im(out_y1:out_y2, out_x1:out_x2) = dummy_pic(37)*255;
     end
-
 end
 
 function char_pos = h_pos_final(raw_positions, padding)
@@ -524,7 +258,7 @@ function [char1_pos, char2_pos, char3_pos, zvr_idx] = h_pos_raw(src_pos, index)
 %return Nx9 postition array
 %char3_pos = [x1, y1, x2, y2, dist, width, heigth, brightness, char_index];
 
-%get the five position 
+%get positions from all 5 brightness 
 %im_pos(row, col, char, brightness)
 for t=1:5
     pos = src_pos(t).Source(index);
@@ -598,10 +332,10 @@ char3_pos = sortrows(char3_pos,5);
 [row, ~] = find( char1_pos(:, 6) == zvr_dummy & char1_pos(:, 7) == zvr_dummy & char1_pos(:, 5) == 53);
 zvr_idx(1).val = unique(row);
 
-[row, ~] = find( char2_pos(:, 6) == zvr_dummy & char2_pos(:, 7) == zvr_dummy & char1_pos(:, 5) == 53);
+[row, ~] = find( char2_pos(:, 6) == zvr_dummy & char2_pos(:, 7) == zvr_dummy & char2_pos(:, 5) == 53);
 zvr_idx(2).val = unique(row);
 
-[row, ~] = find( char3_pos(:, 6) == zvr_dummy & char3_pos(:, 7) == zvr_dummy & char1_pos(:, 5) == 53);
+[row, ~] = find( char3_pos(:, 6) == zvr_dummy & char3_pos(:, 7) == zvr_dummy & char3_pos(:, 5) == 53);
 zvr_idx(3).val = unique(row);
 
 function [anchor, char_pos] = pointsFromFile(filepath)
@@ -630,62 +364,10 @@ char_pos(:,:,3) = [file{1, 2} file{1, 3} file{1, 4} file{1, 5}];
 char_pos = char_pos + 1;
 
 fclose(fileid);
+%=========================================================
 
-function loadChar(hObject, iserase)
-handles = guidata(hObject);
 
-%required data
-final_char_index = handles.char_array_index; %index in pos_final
-brightness = handles.char_pos_final(final_char_index,5);
-section_index = handles.section_index;
-raw_char_index = handles.char_pos_final(final_char_index, 6);
-
-%get the position files
-path = handles.src_pos(brightness).Source(handles.file_index);
-fname = fullfile(path.folder, path.name);
-handles.edited_filename_pos = fname;
-[anchor, char_pos] = pointsFromFile(fname);
-
-%image file name
-path = handles.src_im(brightness).Source(handles.file_index);
-fname = fullfile(path.folder, path.name);
-handles.edited_filename_im = fname;
-
-%colored image
-handles.edited_filename_im_color = strcat(fname(1, 1:end-7), '.bmp');
-
-%get the image file
-handles.edited_im = handles.input_im(brightness).im;
-
-if iserase
-    figure, handles.edited_axes = imshow(handles.edited_filename_im_color);
-else
-    figure, handles.edited_axes = imagesc(handles.edited_im);
-end
-
-%axis limit
-limit = char_pos(raw_char_index,:,section_index);
-
-x_limit = [limit(1)-2 limit(3)+2];
-y_limit = [limit(2)-2 limit(4)+2];
-
-xlim(x_limit);
-ylim(y_limit);
-
-%draw rectangle
-pos1 = [limit(1) limit(2)]-0.5;
-pos2 = [abs(limit(1)-limit(3)) abs(limit(2)-limit(4))] + 1;
-handles.adjusted_rect = rectangle('Position', [pos1 pos2],'EdgeColor', 'r');
-
-colormap gray;
-
-%update handles
-handles.char_pos = char_pos;
-handles.anchor = anchor;
-handles.file_brightness = brightness;
-guidata(gcf, handles);
-
-%==================ADJUSTBOX=================
+%==================ADJUSTBOX=============================
 function adjustBox(hObject, evt)
 
 loadChar(hObject, 0);
@@ -780,9 +462,10 @@ function app_close(hObject,evd)
 handles = getappdata(gcf, 'handles');
 delete(gcf);
 guidata(verify, handles);
-%============================================
+%========================================================
 
-%==================ERASE_BOX=================
+
+%==================ERASE_BOX=============================
 function eraseBox(hObject, evt)
 loadChar(hObject, 1);
 
@@ -869,9 +552,10 @@ function erase_close(hObject,evd)
 handles = getappdata(gcf, 'handles');
 delete(gcf);
 guidata(verify, handles);
-%============================================
+%=========================================================
 
-%==================ADDPOS=================
+
+%==================ADDPOS=================================
 function addPos(hObject, evt)
 handles = guidata(hObject);
 
@@ -940,8 +624,7 @@ handles.anchor = anchor;
 handles.file_brightness = brightness;
 guidata(gcf, handles);
 %-------------------------------------
-ax = gca;
-ax.Title.String = 'Box Adjustment';
+title(gca, 'Box Adjustment');
 
 handles = guidata(gcf);
 setappdata(gcf, 'handles', handles);
@@ -950,8 +633,8 @@ setappdata(gcf, 'handles', handles);
 set(gcf,'WindowButtonDownFcn',{@addpos_wbd, handles.adjusted_rect});
 set(gcf,'CloseRequestFcn',{@addpos_app_close});
 
-%wbd function
-function addpos_wbd(hObject, eventdata, rect, iszvr)
+%addpos_app_wbd function
+function addpos_wbd(hObject, eventdata, rect)
 
 %==========char_pos===========
 pos = rect.Position;
@@ -979,10 +662,10 @@ else
     y = temp2(2);
 end
 
-set(gcf,'WindowButtonMotionFcn',{@wbm, x, y, rect})
-set(gcf,'WindowButtonUpFcn',{@wbu})
+set(gcf,'WindowButtonMotionFcn',{@addpos_wbm, x, y, rect})
+set(gcf,'WindowButtonUpFcn',{@addpos_wbu})
 
-%erase_wbm function
+%addpos_app_wbm function
 function addpos_wbm(h,evd, x, y, rect)
 % executes while the mouse moves
 points = get(gca, 'CurrentPoint');
@@ -1004,7 +687,7 @@ y= y + 0.5;
 
 rect.Position = [points abs(x-points(1)) abs(y-points(2))];
 
-%erase_wbu function
+%addpos_app_wbu function
 function addpos_wbu(hObject,evd, iszvr)
 % executes when the mouse button is released
 handles = getappdata(gcf, 'handles');
@@ -1030,8 +713,216 @@ setappdata(gcf, 'handles', handles);
 function addpos_app_close(hObject,evd)
 handles = getappdata(gcf, 'handles');
 delete(gcf);
+%rebuild the image and plot it
+section_index = handles.section_index;
+[char_pos_raw(:,:,1), char_pos_raw(:,:,2), char_pos_raw(:,:,3), zvr_idx] = h_pos_raw(handles.src_pos, handles.file_index);
+[handles.im, handles.char_pos_final] = build_h_im(handles.input_im, char_pos_raw(:,:,section_index),10,...
+                                               zvr_idx(section_index).val);
+                                           
+handles.zvr_idx = zvr_idx;
+handles.char_pos_raw = char_pos_raw;
+handles = plot_im_rect(handles);
+
 guidata(verify, handles);
-%============================================
+%=========================================================
+
+
+%==================CALLBACKS==============================
+function open_im_ButtonDownFcn(hObject, eventdata, handles)
+% hObject handle to open_im (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% --- Executes on button press in open_im.
+function open_im_Callback(hObject, eventdata, handles)
+% hObject    handle to open_im (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+winopen(handles.edited_filename_im);
+
+% --- Executes on button press in open_im_color.
+function open_im_color_Callback(hObject, eventdata, handles)
+% hObject    handle to open_im_color (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+fname = handles.edited_filename_im;
+fname = strcat(fname(1,1:end-7), '.bmp');
+winopen(fname);
+
+% --- Executes on key press with focus on pagenum and none of its controls.
+function pagenum_KeyPressFcn(hObject, eventdata, handles)
+% hObject    handle to pagenum (see GCBO)
+% eventdata  structure with the following fields (see MATLAB.UI.CONTROL.UICONTROL)
+%	Key: name of the key that was pressed, in lower case
+%	Character: character interpretation of the key(s) that was pressed
+%	Modifier: name(s) of the modifier key(s) (i.e., control, shift) pressed
+% handles    structure with handles and user data (see GUIDATA)
+if strcmp(eventdata.Key,'return')
+        goto_Callback(verify, eventdata);
+end
+
+% --- Executes during object creation, after setting all properties.
+function pagenum_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to pagenum (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+% --- Executes on button press in goto.
+function goto_Callback(hObject, eventdata)
+% hObject    handle to goto (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles structure with handles and user data (see GUIDATA)
+handles = guidata(hObject);
+
+idx = get(handles.pagenum, 'String');
+idx = str2double(idx);
+if isnan(idx)
+   idx=1; 
+end
+
+idx = round(idx);
+if idx < 1
+    idx = 1;
+elseif idx > handles.file_index_max-1
+    idx = handles.file_index_max-1;
+end
+
+handles.file_index = idx;
+handles.section_index = 1;
+
+%save fileindex
+fileid = fopen(fullfile(handles.input_folder_name, 'config.txt'), 'w');
+fprintf(fileid, '%d',  handles.file_index);
+fclose(fileid);
+
+setView(hObject, handles);
+
+%callback for keypress
+function keypressed_callback(hObject, eventdata)
+handles = guidata(gcbo);
+
+switch eventdata.Key
+    case 'rightarrow'
+        if handles.section_index == 3
+            if handles.file_index ~= handles.file_index_max
+                handles.file_index = handles.file_index + 1;
+                handles.section_index = 1;
+            end
+        else
+            handles.section_index = handles.section_index + 1;
+        end
+    case 'leftarrow'
+        if handles.section_index == 1
+            if handles.file_index ~= 1
+                handles.file_index = handles.file_index - 1;
+            end
+        else
+            handles.section_index = handles.section_index - 1;
+        end
+    case 'p'
+        addPos(hObject, eventdata);
+end
+
+if ~strcmp(eventdata.Key, 'p')
+    %save fileindex
+    fileid = fopen(fullfile(handles.input_folder_name, 'config.txt'), 'w');
+    fprintf(fileid, '%d',  handles.file_index);
+    fclose(fileid);
+
+    handles.char_array_index = 1;
+    setView(hObject, handles);
+end
+
+function main_axis_callback(hObject, eventdata)
+handles = guidata(hObject);
+handles.rects(handles.char_array_index).EdgeColor = 'r';
+
+point = get(handles.main_axes, 'CurrentPoint');
+point = [point(1, 1) point(1, 2)];
+idx = closestRect(handles.char_pos_final(:,1:4), point);
+
+if isempty(idx)
+    return;
+end
+
+handles.char_array_index = idx;
+handles.rects(idx).EdgeColor = 'b';
+
+show_char_info(hObject, handles); %display info of the current character
+handles = guidata(hObject);
+
+switch get(hObject,'SelectionType')
+     case 'extend'
+        adjustBox(hObject, eventdata);
+    case 'open'
+        winopen(handles.edited_filename_im);
+end
+set(handles.open_im, 'Enable', 'on');
+set(handles.open_im_color, 'Enable', 'on');
+guidata(hObject, handles);
+%=========================================================
+
+
+%==================FCN RELATED TO CHAR====================
+function loadChar(hObject, iserase)
+handles = guidata(hObject);
+
+%required data
+final_char_index = handles.char_array_index; %index in pos_final
+brightness = handles.char_pos_final(final_char_index,5);
+section_index = handles.section_index;
+raw_char_index = handles.char_pos_final(final_char_index, 6);
+
+%get the position files
+path = handles.src_pos(brightness).Source(handles.file_index);
+fname = fullfile(path.folder, path.name);
+handles.edited_filename_pos = fname;
+[anchor, char_pos] = pointsFromFile(fname);
+
+%image file name
+path = handles.src_im(brightness).Source(handles.file_index);
+fname = fullfile(path.folder, path.name);
+handles.edited_filename_im = fname;
+
+%colored image
+handles.edited_filename_im_color = strcat(fname(1, 1:end-7), '.bmp');
+
+%get the image file
+handles.edited_im = handles.input_im(brightness).im;
+
+if iserase
+    figure, handles.edited_axes = imshow(handles.edited_filename_im_color);
+else
+    figure, handles.edited_axes = imagesc(handles.edited_im);
+end
+
+%axis limit
+limit = char_pos(raw_char_index,:,section_index);
+
+x_limit = [limit(1)-2 limit(3)+2];
+y_limit = [limit(2)-2 limit(4)+2];
+
+xlim(x_limit);
+ylim(y_limit);
+
+%draw rectangle
+pos1 = [limit(1) limit(2)]-0.5;
+pos2 = [abs(limit(1)-limit(3)) abs(limit(2)-limit(4))] + 1;
+handles.adjusted_rect = rectangle('Position', [pos1 pos2],'EdgeColor', 'r');
+
+colormap gray;
+
+%update handles
+handles.char_pos = char_pos;
+handles.anchor = anchor;
+handles.file_brightness = brightness;
+guidata(gcf, handles);
 
 function show_char_info(hObject, handles)
 
@@ -1090,29 +981,13 @@ char_info{2} = path.name; %pos_name
 path = handles.src_im(char_info{3}).Source(handles.file_index);
 % char_info{1} = fullfile(path.folder, path.name); %im_name
 char_info{1} = path.name; %im_name
+%=========================================================
 
-% --- If Enable == 'on', executes on mouse press in 5 pixel border.
-% --- Otherwise, executes on mouse press in 5 pixel border or over open_im.
-function open_im_ButtonDownFcn(hObject, eventdata, handles)
-% hObject handle to open_im (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 
-% --- Executes on button press in open_im.
-function open_im_Callback(hObject, eventdata, handles)
-% hObject    handle to open_im (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-winopen(handles.edited_filename_im);
-
-% --- Executes on button press in open_im_color.
-function open_im_color_Callback(hObject, eventdata, handles)
-% hObject    handle to open_im_color (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-fname = handles.edited_filename_im;
-fname = strcat(fname(1,1:end-7), '.bmp');
-winopen(fname);
+%==================MISCELLANEOUS==========================
+function [x, y]  = swap(x1, y1)
+x = y1;
+y = x1;
 
 %dummy pic for zero value rows
 function pic = dummy_pic(k)
@@ -1130,3 +1005,74 @@ pic([1 end], 1:end) = 1;
 pic(pic == 1) = -1;
 pic(pic == 0) = 1;
 pic(pic == -1) = 0;
+
+function idx = closestRect(char_pos, point)
+point = round(point);
+row = size(char_pos, 1);
+point = repmat(point, row, 1);
+
+point = [point - char_pos(:,1:2), char_pos(:,3:4) - point];
+point = point>=0;
+point = sum(point, 2);
+idx = find(point == 4);
+
+%save the position of the character in a file
+function savePosition(filepath, anchor, pos)
+pos = pos-1;
+
+%get char unicode
+c = strsplit(filepath, {'_', '.'});
+deg = c{end-2};
+uni3 = c{end-3};
+uni2 = c{end-4};
+uni1 = c{end-5};
+
+idx = 1:8;
+anchor = [idx' anchor]';
+
+idx = 1:20;
+pos1 = [idx' pos(:,:,1)]';
+pos2 = [idx' pos(:,:,2)]';
+pos3 = [idx' pos(:,:,3)]';
+
+%output the positions to a file in the output folder
+fileid = fopen(filepath, 'w');
+fprintf(fileid, '%s\r\n', '[ Anchor Points ]');
+fprintf(fileid, ' %d : (  %6.1f , %6.1f )\r\n', anchor);
+
+fprintf(fileid, '\r\n[ Word Contours ] \r\n unicode_brightness: %s_%s \r\n', uni1, deg);
+fprintf(fileid, ' %2d : ( %4d , %4d ) , ( %4d , %4d )\r\n', pos1);
+
+fprintf(fileid, '\r\nunicode_brightness: %s_%s \r\n', uni2, deg);
+fprintf(fileid, ' %2d : ( %4d , %4d ) , ( %4d , %4d )\r\n', pos2);
+
+fprintf(fileid, '\r\nunicode_brightness: %s_%s \r\n', uni3, deg);
+fprintf(fileid, ' %2d : ( %4d , %4d ) , ( %4d , %4d )\r\n', pos3);
+
+fclose(fileid);
+
+function handles = plot_im_rect(handles)
+%plot to main_axes
+handles.h_im = imagesc(handles.im, 'Parent', handles.main_axes);
+handles.h_im.HitTest = 'off';
+handles.main_axes.HitTest = 'off';
+char_pos(:,[1 2]) = handles.char_pos_final(:,[1 2]) + 1.5;
+char_pos(:,[3 4]) = handles.char_pos_final(:,[3 4]) - 1.5;
+
+%plot the rectangles
+axes(handles.main_axes)
+temp = [char_pos(:,1), char_pos(:,2), abs(char_pos(:,1)-char_pos(:,3)),...
+        abs(char_pos(:,2)-char_pos(:,4)), handles.char_pos_final(:,5)];
+    
+col = ['r', 'b', 'g', 'y', 'm'];
+for t=1:100
+    handles.rects(t) = rectangle('Position', temp(t, 1:4), 'EdgeColor', col(1));
+end
+%green color for zvr rectangles
+ar = handles.zvr_idx(handles.section_index).val;
+if ~isempty(ar)
+    for t=1:numel(ar)
+        handles.rects(ar(t)).EdgeColor = 'g';
+    end
+end
+%=========================================================
