@@ -996,13 +996,13 @@ pic = md + rot90(md);
 %center point
 mid = (k+1) / 2;
 pic(mid,mid) = 1;
-pic(1:end, [1 end]) = 1;
-pic([1 end], 1:end) = 1;
+pic(2:end-1, [2 end-1]) = 1;
+pic([2 end-1], 2:end-1) = 1;
 
 %inverse the colore
-pic(pic == 1) = -1;
-pic(pic == 0) = 1;
-pic(pic == -1) = 0;
+% pic(pic == 1) = -1;
+% pic(pic == 0) = 1;
+% pic(pic == -1) = 0;
 
 function idx = closestRect(char_pos, point)
 point = round(point);
