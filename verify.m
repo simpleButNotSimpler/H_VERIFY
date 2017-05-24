@@ -22,7 +22,7 @@ function varargout = verify(varargin)
 
 % Edit the above text to modify the response to help verify
 
-% Last Modified by GUIDE v2.5 10-May-2017 17:56:03
+% Last Modified by GUIDE v2.5 25-May-2017 00:06:24
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -127,6 +127,16 @@ if isnan(index)
     index = 1;
 end
 
+%load dictionary
+fid = fopen('dictionary.txt', 'r', 'n', 'UTF-8');
+book = textscan(fid, '%s %d %d');
+fclose(fid);
+
+dictio.section = book{1, 3};
+dictio.page = book{1, 2};
+dictio.words = book{1, 1};
+
+
 %initialize some gui objects
 handles.rects = gobjects(1,100);
 handles.src_im = src_im;
@@ -135,6 +145,7 @@ handles.file_index_max = imcounter;
 handles.file_index = index;
 handles.section_index = 1;
 handles.char_array_index = 1;
+handles.dictio = dictio;
 
 setView(hObject, handles);
 handles = guidata(hObject);
@@ -932,8 +943,8 @@ end
 
 br = {'0%', '20%', '-20%', '40%', '-40%'};
 
-im_name = char_info{1}; 
-pos_name = char_info{2}; 
+im_name = char_info{1};
+pos_name = char_info{2};
 brightness = br{char_info{3}};
 section = char_info{4};
 index = char_info{5};
@@ -998,11 +1009,6 @@ mid = (k+1) / 2;
 pic(mid,mid) = 1;
 pic(2:end-1, [2 end-1]) = 1;
 pic([2 end-1], 2:end-1) = 1;
-
-%inverse the colore
-% pic(pic == 1) = -1;
-% pic(pic == 0) = 1;
-% pic(pic == -1) = 0;
 
 function idx = closestRect(char_pos, point)
 point = round(point);
@@ -1074,3 +1080,128 @@ if ~isempty(ar)
     end
 end
 %=========================================================
+
+
+
+% --- Executes during object creation, after setting all properties.
+function char_box_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to char_box (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in name_search_btn.
+function name_search_btn_Callback(hObject, eventdata, handles)
+% hObject    handle to name_search_btn (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+searched_char = char_box.String;
+[page, section] = getCharId(handles.dictio, searched_char);
+if isempty(page)
+    return;
+end
+
+%display the page and section
+handles.file_index = page;
+handles.section_index = 1;
+setView(hObject, handles);
+handles.section_index = section;
+setView(hObject, handles);
+
+
+% --- Executes during object creation, after setting all properties.
+function filenum_box_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to filenum_box (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+% --- Executes during object creation, after setting all properties.
+function sectionnum_box_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to sectionnum_box (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+% --- Executes during object creation, after setting all properties.
+function charnum_box_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to charnum_box (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+% --- Executes on button press in file_search_btn.
+function file_search_btn_Callback(hObject, eventdata, handles)
+% hObject    handle to file_search_btn (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+page = str2double(filenum_box.String);
+page = floor(page/3 + 1);
+section = str2Double(sectionnum_box.String);
+char_index = str2Double(charnum_box.String);
+brightness = str2Double(brightness_box.String);
+switch brightness
+    case 0
+        brightness = 1;
+    case 20
+        brightness = 2;
+    case -20
+        brightness = 3;
+    case 40
+        brightness = 4;
+    case -40
+        brightness = 5;
+end
+
+%display the page and section
+handles.file_index = uint8(page);
+handles.section_index = 1;
+setView(hObject, handles);
+handles.section_index = section;
+setView(hObject, handles);
+
+%get the character index
+final_char_index = handles.final_char_index;
+[idx, ~] = find(final_char_index(:, 5)==brightness &&...
+                final_char_index(:, 6)==char_index);
+
+ if isempty(idx)
+     return;
+ end
+            
+handles.rects(handles.char_array_index).EdgeColor = 'r';
+handles.rects(idx).EdgeColor = 'b';
+
+
+% --- Executes during object creation, after setting all properties.
+function brightness_box_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to brightness_box (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
