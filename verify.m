@@ -183,6 +183,8 @@ end
 %plot to main_axes
 handles = plot_im_rect(handles);
 
+colormap gray;
+
 %update info displayed on the gui
 section_counter_label = strcat(num2str(section_index), '/ 3');
 counter = strcat(num2str(index), '/', num2str(handles.file_index_max));
