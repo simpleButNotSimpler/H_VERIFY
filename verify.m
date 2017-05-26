@@ -73,7 +73,7 @@ varargout{1} = handles.output;
    
 % --- Executes on button press in input_folder_btn.
 function input_folder_btn_Callback(hObject, eventdata, handles)
-input_folder_name = uigetdir('C:\Users\E113\Documents\WORK\H_IM');
+input_folder_name = uigetdir('D:\finished');
 %stop if the user press cancel or close the dialog box
 if input_folder_name == 0
     return;
@@ -182,6 +182,8 @@ end
 
 %plot to main_axes
 handles = plot_im_rect(handles);
+
+colormap gray;
 
 %update info displayed on the gui
 section_counter_label = strcat(num2str(section_index), '/ 3');
@@ -712,6 +714,9 @@ section_index = handles.section_index;
 raw_char_index = handles.char_pos_final(handles.char_array_index, 6);
 handles.char_pos(raw_char_index,:,section_index) = [x1 y1 x2 y2];
 
+handles.edited_char_index = raw_char_index;
+handles.edited_char_brightness = handles.char_pos_final(handles.char_array_index, 5);
+
 %save positions
 savePosition(handles.edited_filename_pos, handles.anchor, handles.char_pos);
 
@@ -731,6 +736,16 @@ section_index = handles.section_index;
 handles.zvr_idx = zvr_idx;
 handles.char_pos_raw = char_pos_raw;
 handles = plot_im_rect(handles);
+
+%change the edited char color
+char_index = handles.edited_char_index;
+brightness = handles.edited_char_brightness;
+%get the character index
+[idx, ~] = find(handles.char_pos_final(:, 5)==brightness &...
+                handles.char_pos_final(:, 6)==char_index);
+ if ~isempty(idx)
+     handles.rects(idx).EdgeColor = 'g';
+ end
 
 guidata(verify, handles);
 %=========================================================
@@ -1081,8 +1096,6 @@ if ~isempty(ar)
 end
 %=========================================================
 
-
-
 % --- Executes during object creation, after setting all properties.
 function char_box_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to char_box (see GCBO)
@@ -1095,14 +1108,14 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-
 % --- Executes on button press in name_search_btn.
 function name_search_btn_Callback(hObject, eventdata, handles)
 % hObject    handle to name_search_btn (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-searched_char = char_box.String;
+searched_char = handles.char_box.String;
 [page, section] = getCharId(handles.dictio, searched_char);
+
 if isempty(page)
     return;
 end
@@ -1111,9 +1124,9 @@ end
 handles.file_index = page;
 handles.section_index = 1;
 setView(hObject, handles);
+handles = guidata(hObject);
 handles.section_index = section;
 setView(hObject, handles);
-
 
 % --- Executes during object creation, after setting all properties.
 function filenum_box_CreateFcn(hObject, eventdata, handles)
@@ -1156,11 +1169,11 @@ function file_search_btn_Callback(hObject, eventdata, handles)
 % hObject    handle to file_search_btn (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-page = str2double(filenum_box.String);
+page = str2double(handles.filenum_box.String);
 page = floor(page/3 + 1);
-section = str2Double(sectionnum_box.String);
-char_index = str2Double(charnum_box.String);
-brightness = str2Double(brightness_box.String);
+section = str2double(handles.sectionnum_box.String);
+char_index = str2double(handles.charnum_box.String);
+brightness = str2double(handles.brightness_box.String);
 switch brightness
     case 0
         brightness = 1;
@@ -1172,27 +1185,28 @@ switch brightness
         brightness = 4;
     case -40
         brightness = 5;
+    otherwise
+        brightness = 0;
 end
 
+
 %display the page and section
-handles.file_index = uint8(page);
+handles.file_index = uint16(page);
 handles.section_index = 1;
 setView(hObject, handles);
 handles.section_index = section;
 setView(hObject, handles);
+handles = guidata(hObject);
 
 %get the character index
-final_char_index = handles.final_char_index;
-[idx, ~] = find(final_char_index(:, 5)==brightness &&...
-                final_char_index(:, 6)==char_index);
+[idx, ~] = find(handles.char_pos_final(:, 5)==brightness &...
+                handles.char_pos_final(:, 6)==char_index);
 
  if isempty(idx)
      return;
  end
-            
-handles.rects(handles.char_array_index).EdgeColor = 'r';
-handles.rects(idx).EdgeColor = 'b';
 
+handles.rects(idx).EdgeColor = [0 1 0]; %set to green
 
 % --- Executes during object creation, after setting all properties.
 function brightness_box_CreateFcn(hObject, eventdata, handles)
